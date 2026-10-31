@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi TKA Matematika SMA/SMK</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f3f4f6;
+            --text-color: #1f2937;
+        }
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { background: white; max-width: 800px; width: 100%; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        h1, h2 { color: var(--primary-color); text-align: center; }
+        .hidden { display: none; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; }
+        .form-group input[type="text"] { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 16px; }
+        button { background-color: var(--primary-color); color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; transition: 0.3s; width: 100%; font-weight: bold; }
+        button:hover { background-color: var(--secondary-color); }
+        
+        #header-quiz { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-bottom: 20px; }
+        #timer { font-size: 18px; font-weight: bold; color: #dc2626; }
+        .question-text { font-size: 16px; font-weight: 600; margin-bottom: 15px; line-height: 1.6; }
+        
+        .option-label { display: block; background: #f9fafb; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .option-label:hover { background: #e5e7eb; }
+        .option-label input { margin-right: 10px; transform: scale(1.2); }
+        .short-answer { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 16px; }
+        
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+        .badge-mcq { background: #e0e7ff; color: #4338ca; }
+        .badge-short { background: #fce7f3; color: #be185d; }
+        .badge-complex { background: #dcfce7; color: #15803d; }
+
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #result-box { text-align: center; font-size: 18px; }
+        .score-big { font-size: 48px; font-weight: bold; color: var(--primary-color); margin: 20px 0; }
+        .img-soal { max-width: 100%; border-radius: 8px; margin: 10px 0; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="start-screen">
+        <h1>Simulasi TKA Matematika</h1>
+        <p style="text-align: center;">Terdapat 25 soal (Pilihan Ganda, PG Kompleks, Isian Singkat). Waktu Anda <strong>75 Menit</strong>.</p>
+        <div class="form-group">
+            <label for="studentName">Nama Lengkap:</label>
+            <input type="text" id="studentName" placeholder="Masukkan nama lengkap Anda..." required>
+        </div>
+        <button onclick="startQuiz()">Mulai Kerjakan Soal</button>
+    </div>
+
+    <div id="quiz-screen" class="hidden">
+        <div id="header-quiz">
+            <div>
+                <strong>Siswa:</strong> <span id="display-name"></span><br>
+                <strong>Soal:</strong> <span id="display-question-count"></span> dari 25
+            </div>
+            <div id="timer">Waktu: 75:00</div>
+        </div>
+        <div id="question-area"></div>
+        <button id="next-btn" onclick="nextQuestion()" style="margin-top: 15px;">Selanjutnya</button>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <h1>Ujian Selesai!</h1>
+        <div id="loading-area">
+            <p style="text-align: center;">Menyimpan nilai Anda ke sistem...</p>
+            <div class="loader"></div>
+        </div>
+        <div id="result-box" class="hidden">
+            <p>Terima kasih, <strong id="result-name"></strong>.</p>
+            <p>Skor Mentah: <strong id="raw-score"></strong> / 25</p>
+            <div style="margin: 20px 0; padding: 20px; background: #e0f2fe; border-radius: 8px;">
+                <p style="margin: 0; font-size: 16px; font-weight: bold;">Skor TKA Matematika (Skala 200 - 800):</p>
+                <div class="score-big" id="tka-score"></div>
+            </div>
+            <p style="font-size: 14px; color: #059669; font-weight: bold;">✓ Data berhasil dikirim ke server</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SCRIPT_URL = 'URL_WEB_APP_ANDA_DISINI'; 
+    
+    const rawQuestions = [
+        { type: 'mcq', q: 'Sebuah agen persewaan mobil memiliki 50 unit armada kendaraan. 28 mobil memiliki transmisi otomatis (matic), 20 mobil adalah tipe SUV (kapasitas 7 penumpang), 12 mobil di antaranya adalah tipe SUV yang juga bertransmisi otomatis. Sisanya adalah mobil sedan bertransmisi manual. Jika dipilih satu mobil secara acak, berapakah peluang pelanggan tersebut mendapatkan mobil transmisi otomatis atau tipe SUV?', options: ['9/25', '12/25', '18/25', '21/25', '24/25'], a: '18/25' },
+        { type: 'mcq', q: 'Harga 2 cangkir kopi dan 3 buah donat di sebuah kafe adalah Rp45.000,00. Jika harga secangkir kopi Rp5.000,00 lebih mahal dari sebuah donat, maka harga yang harus dibayar jika kita membeli 3 cangkir kopi dan 4 buah donat adalah ....', options: ['Rp 55.000,00', 'Rp 58.000,00', 'Rp 62.000,00', 'Rp 64.000,00', 'Rp 68.000,00'], a: 'Rp 64.000,00' },
+        { type: 'mcq', q: 'Andi menginvestasikan uangnya di sebuah koperasi yang menerapkan sistem bunga majemuk sebesar 5% per tahun. Jika Andi menyetorkan modal awal sebesar Rp10.000.000,00 dan tidak pernah mengambil uangnya, berapakah total tabungan Andi pada akhir tahun ke-2?', options: ['Rp10.500.000,00', 'Rp11.000.000,00', 'Rp11.025.000,00', 'Rp11.525.000,00', 'Rp11.576.250,00'], a: 'Rp11.025.000,00' },
+        { type: 'mcq', q: 'Setiap 20 menit, Amoeba membelah diri menjadi dua. Pada awal pengamatan, terdapat 5 Amoeba. Setiap 1 jam, 1/4 dari total populasi Amoeba tersebut mati. Berapakah sisa jumlah Amoeba pada akhir jam kedua?', options: ['120', '160', '180', '240', '320'], a: '180' },
+        { type: 'mcq', q: 'Toko Jaya menjual alat tulis sekolah. Tiga murid SMK Merdeka yaitu Maya, Sella, dan Elang membeli alat tulis dengan rincian berikut:<br><img src="https://github.com/user-attachments/assets/b85f4263-3357-4df8-b2b9-ce32444b6b31" class="img-soal"><br>Apabila Nurul, murid dari sekolah yang sama ingin membeli ketiga alat tulis tersebut masing-masing 1 buah, maka banyaknya uang yang harus dibayarkan oleh Nurul adalah ...', options: ['Rp9.000,00', 'Rp10.000,00', 'Rp10.500,00', 'Rp11.000,00', 'Rp12.000,00'], a: 'Rp10.000,00' },
+        { type: 'mcq', q: 'Titik Q(-3,4) diputar 90° searah jarum jam terhadap O(0,0), lalu ditranslasi oleh vektor (2,-5). Koordinat akhir Q adalah ...', options: ['(6,-2)', '(6,2)', '(1,-2)', '(-1,-2)', '(4,-2)'], a: '(6,-2)' },
+        { type: 'mcq', q: 'Maksimum Z=4x+6y dengan syarat x+2y≤12, 3x+2y≤18, x≥0, y≥0 adalah ...', options: ['30', '36', '42', '48', '54'], a: '36' },
+        { type: 'mcq', q: 'Jika sin x – cos x = 1/3, nilai dari sin 2x adalah....', options: ['-8/9', '-4/9', '4/9', '8/9', '10/9'], a: '8/9' },
+        { type: 'short', q: 'Diketahui 3x+y=14 dan x-3y=-2. Ketikkan angka dari nilai 2x+5y !', a: '18' },
+        { type: 'mcq', q: 'Dari 5 siswa laki-laki dan 5 siswa perempuan akan dipilih 4 orang untuk menjadi wakil sekolah. Banyak cara memilih dengan syarat paling sedikit 2 laki-laki adalah ...', options: ['100', '105', '150', '160', '161'], a: '161' },
+        { type: 'mcq', q: 'Hasil dari 1/4 + 7/4 × 8/21 = …', options: ['8/21', '8/11', '11/12', '16/21', '28/21'], a: '11/12' },
+        { type: 'mcq', q: 'Bentuk rasional dari (2+√2)/(√6-√2) adalah…..', options: ['(√6+√2-√3+1)/2', '(√6+√2+√3+1)/2', '(√6+√2-2√3+2)/2', '(√6+√2-√3+2)/4', '(√6+√2+√3+2)/4'], a: '(√6+√2+√3+1)/2' },
+        { type: 'mcq', q: 'Energi listrik dirumuskan E = V x I x t. Tegangan V=2⁴×5² volt, arus I=2⁻¹×5⁻¹ ampere, waktu t=2³×5 detik. Karena rugi sistem, energi bersih = E/(2²×5). Maka energi bersihnya adalah ...', options: ['2⁸×5⁵ J', '2⁴×5³ J', '80 J', '32 J', '5 J'], a: '80 J' },
+        { type: 'short', q: 'Fungsi f:R→R dan g:R→R. Jika g(x) = x-1 dan (f o g)(x) = 2x+3, ketikkan angka dari nilai f(2) !', a: '9' },
+        { type: 'short', q: 'Diketahui fungsi f(x) = √(2x+3). Jika f⁻¹(x) adalah invers dari f(x), ketikkan angka dari nilai f⁻¹(3) !', a: '3' },
+        { type: 'complex', q: 'Dalam sebuah konferensi teknologi, setiap 10 gadget diproduksi terdapat: 4 smartphone, 3 smartwatch, 2 tablet, sisanya smart tag. Pilih pernyataan peluang yang BENAR:', options: ['Peluang terpilihnya ponsel pintar adalah 40%', 'Peluang terpilihnya gadget bukan computer adalah 0,2', 'Peluang terpilihnya unit pelacak lokasi adalah 1/5', 'Peluang terpilihnya gadget bukan jam tangan adalah 70%'], a: ['Peluang terpilihnya ponsel pintar adalah 40%', 'Peluang terpilihnya gadget bukan jam tangan adalah 70%'] },
+        { type: 'complex', q: 'Sebuah piring besar akan ditata potongan buah dengan susunan melingkar.<br><img src="https://github.com/user-attachments/assets/7f3a1850-10b8-4f24-8609-b00e04f02dd3" class="img-soal"><br>Tentukan manakah banyak potongan buah yang mungkin pada susunan berikutnya?', options: ['20 potong buah', '24 potong buah', '32 potong buah', '64 potong buah'], a: ['32 potong buah', '64 potong buah'] },
+        { type: 'complex', q: 'Biro perjalanan merancang strategi promosi berdasarkan data:<br><img src="https://github.com/user-attachments/assets/16493dbb-e30f-41ac-b76e-392296a03ad7" class="img-soal"><br>Tabel Aktivitas Favorit berdasarkan Negara Asal.<br><img src="https://github.com/user-attachments/assets/5175869e-bad7-4b38-9e62-fc9b69c3d8b7" class="img-soal"><br>Bagaimana potensi jumlah wisatawan? (Pilih semua pernyataan yang benar)', options: ['Peningkatan iklan Berselancar untuk wisatawan Australia berpotensi mendatangkan volume wisatawan lebih besar daripada iklan Wisata Kuliner untuk Jepang.', 'Target pasar wisatawan Perawatan Tubuh asal Malaysia lebih besar dibandingkan Kuliner asal China.', 'Potensi wisatawan Belanja asal Jepang lebih kecil dibandingkan wisatawan Belanja asal China.'], a: ['Target pasar wisatawan Perawatan Tubuh asal Malaysia lebih besar dibandingkan Kuliner asal China.', 'Potensi wisatawan Belanja asal Jepang lebih kecil dibandingkan wisatawan Belanja asal China.'] },
+        { type: 'complex', q: 'Pada trapesium berikut AD=BC, AB sejajar DC, AB>DC, ∠BAD=70°, dan ∠ABD=30°.<br><img src="https://github.com/user-attachments/assets/a2e31230-280c-436c-825f-4bab30faea8e" class="img-soal"><br>Pilih pernyataan sudut yang BENAR pada trapesium ABCD!', options: ['Besar ∠BCD = 110°', 'Besar ∠CBD = 40°', 'Besar ∠BDC = 40°'], a: ['Besar ∠BCD = 110°', 'Besar ∠CBD = 40°'] },
+        { type: 'mcq', q: 'Suku ke-5 dari barisan aritmetika 2, 5, 8, ... adalah...', options: ['11', '14', '17', '20', '23'], a: '14' },
+        { type: 'mcq', q: 'Suatu tangga dengan panjang 6 meter disandarkan pada dinding vertikal. Sudut yang dibentuk tangga dengan lantai adalah 60°. Tinggi dinding yang disentuh ujung atas tangga adalah...', options: ['3', '3√2', '3√3', '4√2', '4√3'], a: '3√3' },
+        { type: 'mcq', q: 'Peluang munculnya mata dadu genap pada pelemparan sebuah dadu adalah...', options: ['1/6', '1/3', '1/2', '2/3', '5/6'], a: '1/2' },
+        { type: 'short', q: 'Hasil kali akar-akar persamaan x² - 5x + 6 = 0 adalah... (Tulis angka saja)', a: '6' },
+        { type: 'mcq', q: 'Modus dari data: 2, 3, 3, 4, 5, 5, 5, 6 adalah...', options: ['2', '3', '4', '5', '6'], a: '5' },
+        { type: 'short', q: 'Jika 2^x = 16, berapakah nilai x? (Tulis angka saja)', a: '4' }
+    ];
+
+    let questions = [];
+    let currentQIndex = 0;
+    let score = 0;
+    let studentName = '';
+    let timeLeft = 75 * 60;
+    let timerInterval;
+
+    function shuffleArray(array) {
+        let arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function startQuiz() {
+        const nameInput = document.getElementById('studentName').value.trim();
+        if (!nameInput) return alert("Harap masukkan nama Anda!");
+        
+        studentName = nameInput;
+        document.getElementById('display-name').innerText = studentName;
+        questions = shuffleArray(rawQuestions);
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('quiz-screen').classList.remove('hidden');
+
+        startTimer();
+        renderQuestion();
+    }
+
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            let m = Math.floor(timeLeft / 60);
+            let s = timeLeft % 60;
+            document.getElementById('timer').innerText = `Waktu: ${m}:${s < 10 ? '0' : ''}${s}`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                alert("Waktu habis! Jawaban Anda akan dinilai.");
+                finishQuiz();
+            }
+        }, 1000);
+    }
+
+    function renderQuestion() {
+        const qArea = document.getElementById('question-area');
+        const qData = questions[currentQIndex];
+        document.getElementById('display-question-count').innerText = currentQIndex + 1;
+        
+        let html = '';
+        if (qData.type === 'mcq') {
+            html += `<div class="badge badge-mcq">Pilihan Ganda</div>`;
+            html += `<div class="question-text">${currentQIndex + 1}. ${qData.q}</div>`;
+            qData.options.forEach(opt => {
+                html += `<label class="option-label"><input type="radio" name="q_opt" value="${opt}"> ${opt}</label>`;
+            });
+        } else if (qData.type === 'short') {
+            html += `<div class="badge badge-short">Isian Singkat</div>`;
+            html += `<div class="question-text">${currentQIndex + 1}. ${qData.q}</div>`;
+            html += `<input type="text" id="q_short" class="short-answer" placeholder="Ketik jawaban di sini...">`;
+        } else if (qData.type === 'complex') {
+            html += `<div class="badge badge-complex">PG Kompleks (Bisa >1 Jawaban)</div>`;
+            html += `<div class="question-text">${currentQIndex + 1}. ${qData.q}</div>`;
+            qData.options.forEach(opt => {
+                html += `<label class="option-label"><input type="checkbox" name="q_chk" value="${opt}"> ${opt}</label>`;
+            });
+        }
+        qArea.innerHTML = html;
+
+        const btn = document.getElementById('next-btn');
+        if (currentQIndex === questions.length - 1) {
+            btn.innerText = "Selesai & Kirim Jawaban";
+            btn.style.backgroundColor = "#059669";
+        } else {
+            btn.innerText = "Selanjutnya";
+            btn.style.backgroundColor = "var(--primary-color)";
+        }
+    }
+
+    function checkAnswer() {
+        const qData = questions[currentQIndex];
+        if (qData.type === 'mcq') {
+            const selected = document.querySelector('input[name="q_opt"]:checked');
+            if (selected && selected.value === qData.a) score++;
+        } else if (qData.type === 'short') {
+            const val = document.getElementById('q_short').value.trim().toLowerCase();
+            if (val === qData.a.toLowerCase()) score++;
+        } else if (qData.type === 'complex') {
+            const checkboxes = document.querySelectorAll('input[name="q_chk"]:checked');
+            let selectedVals = Array.from(checkboxes).map(cb => cb.value).sort();
+            let sortedAnswer = [...qData.a].sort();
+            if (JSON.stringify(selectedVals) === JSON.stringify(sortedAnswer)) score++;
+        }
+    }
+
+    function nextQuestion() {
+        checkAnswer();
+        currentQIndex++;
+        if (currentQIndex < questions.length) renderQuestion();
+        else finishQuiz();
+    }
+
+    function finishQuiz() {
+        clearInterval(timerInterval);
+        document.getElementById('quiz-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+
+        const tkaScore = Math.round(200 + (score / questions.length) * 600);
+        document.getElementById('result-name').innerText = studentName;
+        document.getElementById('raw-score').innerText = score;
+        document.getElementById('tka-score').innerText = tkaScore;
+
+        sendDataToSheets(studentName, score, tkaScore);
+    }
+
+    function sendDataToSheets(nama, skorBenar, skorTKA) {
+        if (!SCRIPT_URL || SCRIPT_URL.includes('URL_WEB_APP')) {
+            showResultBox();
+            return;
+        }
+        fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ nama: nama, skorBenar: skorBenar, skorTKA: skorTKA })
+        })
+        .then(() => showResultBox())
+        .catch(() => showResultBox());
+    }
+
+    function showResultBox() {
+        document.getElementById('loading-area').classList.add('hidden');
+        document.getElementById('result-box').classList.remove('hidden');
+    }
+</script>
+</body>
+</html>
